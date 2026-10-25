@@ -22,6 +22,16 @@ alert at start-up. On a Mac, prefix the command with `caffeinate -i` so the Mac 
 sleep. To keep it running after you close the terminal, use
 `nohup ... > checker.log 2>&1 &`.
 
+### Cloud options still to test
+
+All GitHub Actions runners (Linux, ARM, Windows, macOS) run on Microsoft's network and
+all get HTTP 541. Two free platforms on other networks are untested:
+
+- **Google Apps Script** (`google_apps_script/Code.gs`): paste it into a new project at
+  script.google.com, run `probe()`, then `install()` if the probe gets through. It
+  checks every 5 minutes and emails you.
+- **Cloudflare Workers** (`cloudflare_worker/probe.js`): probe only for now.
+
 The GitHub Actions workflow is kept for manual test runs (Actions → Run workflow). Its
 5-minute schedule is commented out; uncomment it if Apple stops blocking GitHub.
 
