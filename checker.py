@@ -57,7 +57,9 @@ def check_region(region):
     """Return ({key: info} for available store/part pairs, number of successful queries)."""
     parts = list(region["models"])
     available, ok = {}, 0
-    for location in region["locations"]:
+    for i, location in enumerate(region["locations"]):
+        if i:
+            time.sleep(1)  # be polite between requests
         try:
             stores = fetch_stores(region, location, parts)
         except urllib.error.HTTPError as e:
@@ -81,7 +83,6 @@ def check_region(region):
                     "quote": pa.get("pickupSearchQuote", ""),
                     "url": f"https://www.apple.com{region['path']}/shop/buy-iphone/iphone-duo",
                 }
-        time.sleep(1)  # be polite between requests
     print(f"  [{region['name']}] {ok}/{len(region['locations'])} queries ok, "
           f"{len(available)} store/model pairs available")
     return available, ok
@@ -204,4 +205,12 @@ def main():
 
 
 if __name__ == "__main__":
+    # "--every SECONDS" keeps checking in a loop (for running on a home machine).
+    if "--every" in sys.argv:
+        interval = int(sys.argv[sys.argv.index("--every") + 1])
+        while True:
+            print(time.strftime("%Y-%m-%d %H:%M:%S"), "checking")
+            main()
+            sys.argv = [a for a in sys.argv if a != "--test-notify"]
+            time.sleep(interval)
     main()

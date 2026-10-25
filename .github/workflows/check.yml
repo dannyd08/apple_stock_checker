@@ -1,8 +1,10 @@
 name: Check iPhone Duo stock
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"  # GitHub's minimum; runs can be delayed under load
+  # Disabled: Apple answers requests from GitHub's servers with HTTP 541.
+  # Uncomment if that changes (5 minutes is GitHub's minimum).
+  # schedule:
+  #   - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       test_notify:
