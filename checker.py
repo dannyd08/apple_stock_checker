@@ -1,0 +1,207 @@
+"""Check Apple Store pickup availability for iPhone Duo and send alerts.
+
+Runs once per invocation (GitHub Actions calls it on a schedule). Uses only the
+standard library. State is kept in a JSON file so you are alerted when a model
+*becomes* available at a store, not on every run while it stays in stock.
+"""
+
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+STATE_FILE = os.environ.get("STATE_FILE", "state.json")
+CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
+NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "").strip()
+NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
+GITHUB_MENTION = os.environ.get("GITHUB_MENTION", "").strip()
+ALERT_ISSUE_TITLE = "iPhone Duo stock alerts"
+# Send a "checker is blocked" alert after this many consecutive fully failed runs.
+FAILURE_ALERT_THRESHOLD = 6
+
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+)
+
+
+def http(url, data=None, headers=None, method=None, timeout=20):
+    req = urllib.request.Request(url, data=data, headers=headers or {}, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.status, resp.read()
+
+
+def fetch_stores(region, location, parts):
+    """Return the pickup 'stores' list for one region/location query."""
+    params = {"fae": "true", "pl": "true", "mts.0": "regular", "location": location}
+    for i, part in enumerate(parts):
+        params[f"parts.{i}"] = part
+    base = f"https://www.apple.com{region['path']}/shop"
+    url = f"{base}/fulfillment-messages?{urllib.parse.urlencode(params)}"
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json",
+        "Referer": f"{base}/buy-iphone/iphone-duo",
+    }
+    status, body = http(url, headers=headers)
+    data = json.loads(body)
+    return data["body"]["content"]["pickupMessage"].get("stores", [])
+
+
+def check_region(region):
+    """Return ({key: info} for available store/part pairs, number of successful queries)."""
+    parts = list(region["models"])
+    available, ok = {}, 0
+    for location in region["locations"]:
+        try:
+            stores = fetch_stores(region, location, parts)
+        except urllib.error.HTTPError as e:
+            print(f"  [{region['name']}] {location}: HTTP {e.code}", file=sys.stderr)
+            continue
+        except Exception as e:  # network error, bad JSON, changed schema
+            print(f"  [{region['name']}] {location}: {type(e).__name__}: {e}", file=sys.stderr)
+            continue
+        ok += 1
+        for store in stores:
+            for part, pa in (store.get("partsAvailability") or {}).items():
+                if pa.get("pickupDisplay") != "available":
+                    continue
+                key = f"{region['name']}|{store.get('storeNumber')}|{part}"
+                available[key] = {
+                    "region": region["name"],
+                    "model": region["models"].get(part, part),
+                    "part": part,
+                    "store": store.get("storeName", "?"),
+                    "city": store.get("city", ""),
+                    "quote": pa.get("pickupSearchQuote", ""),
+                    "url": f"https://www.apple.com{region['path']}/shop/buy-iphone/iphone-duo",
+                }
+        time.sleep(1)  # be polite between requests
+    print(f"  [{region['name']}] {ok}/{len(region['locations'])} queries ok, "
+          f"{len(available)} store/model pairs available")
+    return available, ok
+
+
+def notify_ntfy(title, message, click=None, priority="high"):
+    if not NTFY_TOPIC:
+        return
+    headers = {"Title": title.encode("utf-8"), "Priority": priority, "Tags": "iphone"}
+    if click:
+        headers["Click"] = click
+    try:
+        http(f"{NTFY_SERVER}/{NTFY_TOPIC}", data=message.encode("utf-8"), headers=headers, method="POST")
+    except Exception as e:
+        print(f"ntfy failed: {e}", file=sys.stderr)
+
+
+def github_api(path, payload=None, method="GET"):
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "duo-stock-checker",
+    }
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode()
+        headers["Content-Type"] = "application/json"
+    _, body = http(f"https://api.github.com/repos/{GITHUB_REPOSITORY}{path}", data, headers, method)
+    return json.loads(body) if body else None
+
+
+def notify_github(title, message):
+    """Comment on a single alerts issue; the @mention triggers a GitHub Mobile push."""
+    if not (GITHUB_TOKEN and GITHUB_REPOSITORY):
+        return
+    try:
+        issues = github_api("/issues?state=open&per_page=100")
+        issue = next((i for i in issues if i["title"] == ALERT_ISSUE_TITLE and "pull_request" not in i), None)
+        if issue is None:
+            issue = github_api("/issues", {"title": ALERT_ISSUE_TITLE,
+                                           "body": "Stock alerts from the checker are posted here."}, "POST")
+        mention = f"@{GITHUB_MENTION} " if GITHUB_MENTION else ""
+        github_api(f"/issues/{issue['number']}/comments",
+                   {"body": f"{mention}**{title}**\n\n{message}"}, "POST")
+    except Exception as e:
+        print(f"GitHub issue alert failed: {e}", file=sys.stderr)
+
+
+def notify(title, message, click=None, priority="high"):
+    print(f"ALERT: {title}\n{message}")
+    notify_ntfy(title, message, click, priority)
+    notify_github(title, message)
+
+
+def load_json(path, default):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default
+
+
+def main():
+    config = load_json(CONFIG_FILE, None)
+    if config is None:
+        sys.exit(f"missing or invalid {CONFIG_FILE}")
+    state = load_json(STATE_FILE, {"available": {}, "consecutive_failures": 0})
+    test_mode = "--test-notify" in sys.argv
+
+    if test_mode:
+        notify("Test alert: iPhone Duo checker",
+               "Notifications work. You'll get alerts like this when stock appears.",
+               priority="default")
+
+    previous = state.get("available", {})
+    now_available, total_ok = {}, 0
+    for region in config["regions"]:
+        avail, ok = check_region(region)
+        if ok < len(region["locations"]):
+            # Some queries failed: keep that region's old entries so they don't re-alert later.
+            for k, v in previous.items():
+                if v["region"] == region["name"]:
+                    avail.setdefault(k, v)
+        now_available.update(avail)
+        total_ok += ok
+
+    if total_ok == 0:
+        state["consecutive_failures"] = state.get("consecutive_failures", 0) + 1
+        print(f"All queries failed ({state['consecutive_failures']} runs in a row)")
+        if state["consecutive_failures"] == FAILURE_ALERT_THRESHOLD:
+            notify("iPhone Duo checker is blocked",
+                   f"Every Apple request has failed for {FAILURE_ALERT_THRESHOLD} runs in a row. "
+                   "Apple may be blocking GitHub's servers; check the Actions logs.",
+                   priority="default")
+        # Keep previous availability so a temporary outage doesn't re-trigger alerts.
+        with open(STATE_FILE, "w") as f:
+            json.dump(state, f, indent=1)
+        return
+
+    if state.get("consecutive_failures", 0) >= FAILURE_ALERT_THRESHOLD:
+        notify("iPhone Duo checker is working again", "Apple requests are succeeding again.",
+               priority="low")
+    state["consecutive_failures"] = 0
+
+    new = {k: v for k, v in now_available.items() if k not in previous}
+    if new:
+        lines = [f"• {v['model']} — {v['store']}, {v['city']} ({v['region']})"
+                 + (f": {v['quote']}" if v["quote"] else "")
+                 for v in sorted(new.values(), key=lambda v: (v["region"], v["model"], v["store"]))]
+        regions = sorted({v["region"] for v in new.values()})
+        notify(f"iPhone Duo in stock: {', '.join(regions)}",
+               "\n".join(lines[:25]) + (f"\n…and {len(lines) - 25} more" if len(lines) > 25 else ""),
+               click=next(iter(new.values()))["url"])
+    else:
+        print("No new availability.")
+
+    state["available"] = now_available
+    with open(STATE_FILE, "w") as f:
+        json.dump(state, f, indent=1)
+
+
+if __name__ == "__main__":
+    main()
