@@ -2,7 +2,7 @@ name: Check iPhone Duo stock
 
 on:
   schedule:
-    - cron: "7 * * * *"  # hourly; each run then loops for ~58 minutes (see env below)
+    - cron: "3,18,33,48 * * * *"  # see "How often it checks" in the README
   workflow_dispatch:
     inputs:
       test_notify:
@@ -10,13 +10,16 @@ on:
         type: boolean
         default: false
 
-# GitHub's scheduler can't fire more often than every 5 minutes, so each scheduled run
-# loops instead: a check every CHECK_EVERY seconds, for RUN_FOR seconds. Manual runs
-# ("Run workflow") do a single check. For one check per scheduled run, empty both and
-# set the cron to "*/5 * * * *".
+# GitHub's scheduler can't fire more often than every 5 minutes, and fires are
+# best-effort (often late, sometimes dropped), so each scheduled run loops instead: a
+# check every CHECK_EVERY seconds, for RUN_FOR seconds. RUN_FOR is longer than the gap
+# between fires on purpose: with the concurrency group below, the next fire waits as
+# "pending" until the current run ends, so coverage never depends on one fire arriving
+# on time. (A fire that arrives while one is already pending replaces it, which shows
+# up as a cancelled run. That's expected.) Manual runs ("Run workflow") do one check.
 env:
   CHECK_EVERY: "180"
-  RUN_FOR: "3480"
+  RUN_FOR: "1680"
   PYTHONUNBUFFERED: "1"
 
 permissions:
@@ -33,7 +36,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -68,7 +71,8 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+        # Keep the 3 newest so two runs finishing together can't delete each other's.
         run: |
-          gh cache list --repo "$GITHUB_REPOSITORY" --key state- --limit 100 --json id,key \
-            --jq '.[] | select(.key != "state-${{ github.run_id }}-${{ github.run_attempt }}") | .id' |
+          gh cache list --repo "$GITHUB_REPOSITORY" --key state- --limit 100 \
+            --sort created_at --order desc --json id --jq '.[3:][].id' |
             xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY" || true

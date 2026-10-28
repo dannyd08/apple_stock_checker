@@ -34,11 +34,15 @@ re-alerts.
 
 ## How often it checks
 
-GitHub's scheduler can't fire more often than every 5 minutes (and is often late), so
-the workflow runs hourly and each run loops: a check every 3 minutes for 58 minutes
-(`CHECK_EVERY` and `RUN_FOR` in `.github/workflows/check.yml`). Scheduled runs queue
-behind each other, so there's at most a short gap each hour. After any 541 the loop
-waits 10 minutes before trying again. Manual runs do a single check.
+GitHub's scheduler can't fire more often than every 5 minutes, and its fires are
+best-effort: often 5–15 minutes late and occasionally dropped. So the workflow fires
+every 15 minutes and each run loops, checking every 3 minutes for 28 minutes
+(`CHECK_EVERY` and `RUN_FOR` in `.github/workflows/check.yml`). Runs share a
+concurrency group, so the next fire waits as "pending" until the current run ends and
+then takes over; one run is always active as long as at least one fire in every 28
+minutes gets through. A fire that arrives while another is already pending replaces
+it, which appears as a cancelled run in the Actions tab; that's normal. After any 541
+the loop waits 10 minutes before trying again. Manual runs do a single check.
 
 ## Changing what it watches
 
