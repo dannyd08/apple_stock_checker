@@ -9,17 +9,25 @@ on:
         description: "Send a test notification"
         type: boolean
         default: false
+      loop:
+        description: "Keep checking for RUN_FOR seconds (and queue the next run)"
+        type: boolean
+        default: false
 
-# GitHub's scheduler can't fire more often than every 5 minutes, and fires are
-# best-effort (often late, sometimes dropped), so each scheduled run loops instead: a
-# check every CHECK_EVERY seconds, for RUN_FOR seconds. RUN_FOR is much longer than the
-# gap between fires on purpose: with the concurrency group below, the next fire waits
-# as "pending" until the current run ends, so coverage holds as long as any one of the
-# ~5 fires during a run arrives. Each new fire replaces the pending one, which shows up
-# as a cancelled run; that's expected. Manual runs ("Run workflow") do one check.
+# How continuous checking works. A "loop run" (any scheduled run, or a manual run with
+# the loop box ticked) checks every CHECK_EVERY seconds for RUN_FOR seconds, and as its
+# first step queues its own successor with workflow_dispatch. The concurrency group
+# below holds that successor as "pending" until the current run ends, so the chain
+# never has a gap. GitHub's scheduler is only a backup that restarts the chain if a run
+# ever dies before queueing the next: its fires are best-effort (often late, sometimes
+# dropped, hours late for new repos). Each fire replaces the pending run, which shows
+# up as a cancelled run in the Actions tab; that's expected. To stop everything,
+# disable the workflow (Actions → Check iPhone Duo stock → ··· → Disable workflow).
+# A manual run without the loop box does one check and doesn't touch the chain.
 env:
   CHECK_EVERY: "180"
   RUN_FOR: "1680"
+  LOOP: ${{ github.event_name == 'schedule' || inputs.loop == true }}
   PYTHONUNBUFFERED: "1"
 
 permissions:
@@ -27,10 +35,10 @@ permissions:
   issues: write
   actions: write
 
-# Scheduled runs queue behind each other; manual runs get their own group so a test
-# doesn't wait up to an hour for the loop to finish.
+# Loop runs queue behind each other (one running, one pending); single checks get
+# their own group so a test doesn't wait for the loop to finish.
 concurrency:
-  group: ${{ github.event_name == 'schedule' && 'stock-check' || format('manual-{0}', github.run_id) }}
+  group: ${{ (github.event_name == 'schedule' || inputs.loop == true) && 'stock-check' || format('manual-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -39,6 +47,12 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+
+      - name: Queue the next loop run
+        if: env.LOOP == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run check.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f loop=true
 
       - name: Restore last state
         uses: actions/cache/restore@v4
@@ -54,7 +68,7 @@ jobs:
           GITHUB_MENTION: ${{ github.repository_owner }}
         run: |
           args=""
-          if [ "${{ github.event_name }}" = "schedule" ] && [ -n "$CHECK_EVERY" ]; then
+          if [ "$LOOP" = "true" ]; then
             args="--every $CHECK_EVERY --for $RUN_FOR"
           fi
           [ "${{ inputs.test_notify }}" = "true" ] && args="$args --test-notify"

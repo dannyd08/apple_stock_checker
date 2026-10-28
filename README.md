@@ -34,17 +34,22 @@ re-alerts.
 
 ## How often it checks
 
-GitHub's scheduler can't fire more often than every 5 minutes, and its fires are
-best-effort: often 5–15 minutes late and occasionally dropped. So the workflow fires
-every 5 minutes and each run loops, checking every 3 minutes for 28 minutes
-(`CHECK_EVERY` and `RUN_FOR` in `.github/workflows/check.yml`). Runs share a
-concurrency group, so the next fire waits as "pending" until the current run ends and
-then takes over; one run is always active as long as any one of the ~5 fires during a
-run gets through. Each new fire replaces the pending one, so the Actions tab shows a
-cancelled run every 5 minutes or so; that's normal. If those cancellations email you,
-turn on "Send notifications for failed workflows only" under GitHub Settings →
-Notifications → Actions. After any 541 the loop waits 10 minutes before trying again.
-Manual runs do a single check.
+Each run checks every 3 minutes for 28 minutes (`CHECK_EVERY` and `RUN_FOR` in
+`.github/workflows/check.yml`) and, as its first step, queues its own successor. Runs
+share a concurrency group, so the successor waits as "pending" and starts the moment
+the current run ends: a chain with no gaps. GitHub's own scheduler (every 5 minutes)
+is only a backup that restarts the chain if a run ever dies before queueing the next;
+its fires are best-effort and, for new repositories, can be hours late or missing.
+Each scheduler fire replaces the pending run, so the Actions tab shows a cancelled run
+every few minutes; that's normal. If those cancellations email you, turn on "Send
+notifications for failed workflows only" under GitHub Settings → Notifications →
+Actions.
+
+To **stop** checking: Actions → "Check iPhone Duo stock" → ··· → Disable workflow.
+To **start** it again: enable the workflow, then Run workflow with the **loop** box
+ticked (or wait for the scheduler). A manual run without the loop box does one check
+and leaves the chain alone. After any 541 the loop waits 10 minutes before trying
+again.
 
 ## Changing what it watches
 
