@@ -23,6 +23,10 @@ GITHUB_MENTION = os.environ.get("GITHUB_MENTION", "").strip()
 ALERT_ISSUE_TITLE = "iPhone Duo stock alerts"
 # Send a "checker is blocked" alert after this many consecutive fully failed runs.
 FAILURE_ALERT_THRESHOLD = 6
+# Apple limits requests per address (a burst of ~30 earns a 541 for 10-15 minutes),
+# so keep at least this many seconds between requests to it.
+REQUEST_GAP = 2.0
+_last_apple_request = 0.0
 
 # The newer fulfillment-messages endpoint sits behind Apple's browser bot check and
 # answers HTTP 541 to scripts; retail/pickup-message is the older, plainer one.
@@ -42,6 +46,7 @@ def http(url, data=None, headers=None, method=None, timeout=20):
 
 def fetch_stores(region, location, parts, endpoint=None):
     """Return the pickup 'stores' list for one region/location query."""
+    global _last_apple_request
     endpoint = endpoint or region.get("endpoint", DEFAULT_ENDPOINT)
     params = {"pl": "true", "mts.0": "regular"}
     if endpoint == "fulfillment-messages":
@@ -58,7 +63,13 @@ def fetch_stores(region, location, parts, endpoint=None):
         "Accept": "application/json",
         "Referer": f"{base}/buy-iphone/iphone-duo",
     }
-    status, body = http(url, headers=headers)
+    wait = _last_apple_request + REQUEST_GAP - time.monotonic()
+    if wait > 0:
+        time.sleep(wait)
+    try:
+        status, body = http(url, headers=headers)
+    finally:
+        _last_apple_request = time.monotonic()
     data = json.loads(body)
     # retail/pickup-message answers with body.stores; fulfillment-messages nests it deeper.
     if "stores" in data.get("body", {}):
@@ -67,16 +78,18 @@ def fetch_stores(region, location, parts, endpoint=None):
 
 
 def check_region(region):
-    """Return ({key: info} for available store/part pairs, number of successful queries)."""
+    """Return ({key: info} for available store/part pairs, successful query count,
+    and whether Apple answered 541 so the run should stop)."""
     parts = list(region["models"])
-    available, ok = {}, 0
-    for i, location in enumerate(region["locations"]):
-        if i:
-            time.sleep(1)  # be polite between requests
+    available, ok, blocked = {}, 0, False
+    for location in region["locations"]:
         try:
             stores = fetch_stores(region, location, parts)
         except urllib.error.HTTPError as e:
             print(f"  [{region['name']}] {location}: HTTP {e.code}", file=sys.stderr)
+            if e.code == 541:
+                blocked = True  # per-address limit: don't make it worse this run
+                break
             continue
         except Exception as e:  # network error, bad JSON, changed schema
             print(f"  [{region['name']}] {location}: {type(e).__name__}: {e}", file=sys.stderr)
@@ -98,7 +111,7 @@ def check_region(region):
                 }
     print(f"  [{region['name']}] {ok}/{len(region['locations'])} queries ok, "
           f"{len(available)} store/model pairs available")
-    return available, ok
+    return available, ok, blocked
 
 
 def notify_ntfy(title, message, click=None, priority="high"):
@@ -171,9 +184,13 @@ def main():
                priority="default")
 
     previous = state.get("available", {})
-    now_available, total_ok = {}, 0
+    now_available, total_ok, blocked = {}, 0, False
     for region in config["regions"]:
-        avail, ok = check_region(region)
+        avail, ok = {}, 0
+        if not blocked:
+            avail, ok, blocked = check_region(region)
+            if blocked:
+                print("  Apple answered 541 (rate limit); skipping the rest of this run")
         if ok < len(region["locations"]):
             # Some queries failed: keep that region's old entries so they don't re-alert later.
             for k, v in previous.items():
