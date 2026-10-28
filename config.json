@@ -3,6 +3,7 @@
     {
       "name": "California",
       "path": "",
+      "cppart": "UNLOCKED/US",
       "locations": ["94103", "95014", "95815", "90036", "92660", "92122"],
       "models": {
         "MK1E4LL/A": "iPhone Duo 256GB Star White",

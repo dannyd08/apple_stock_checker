@@ -12,6 +12,7 @@ const REGIONS = [
   {
     "name": "California",
     "path": "",
+    "cppart": "UNLOCKED/US",
     "locations": [
       "94103",
       "95014",
@@ -71,8 +72,10 @@ const REGIONS = [
 ];
 
 function fetchStores_(region, location, parts) {
-  const params = ['fae=true', 'pl=true', 'mts.0=regular', 'location=' + encodeURIComponent(location)];
-  parts.forEach((p, i) => params.push('parts.' + i + '=' + encodeURIComponent(p)));
+  const params = ['fae=true', 'pl=true', 'mts.0=regular'];
+  if (region.cppart) params.push('cppart=' + region.cppart);  // carrier, e.g. UNLOCKED/US
+  parts.forEach((p, i) => params.push('parts.' + i + '=' + p));
+  params.push('location=' + encodeURIComponent(location));
   const base = 'https://www.apple.com' + region.path + '/shop';
   const res = UrlFetchApp.fetch(base + '/fulfillment-messages?' + params.join('&'), {
     muteHttpExceptions: true,

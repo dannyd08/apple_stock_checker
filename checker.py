@@ -38,11 +38,14 @@ def http(url, data=None, headers=None, method=None, timeout=20):
 
 def fetch_stores(region, location, parts):
     """Return the pickup 'stores' list for one region/location query."""
-    params = {"fae": "true", "pl": "true", "mts.0": "regular", "location": location}
+    params = {"fae": "true", "pl": "true", "mts.0": "regular"}
+    if region.get("cppart"):
+        params["cppart"] = region["cppart"]  # carrier, e.g. UNLOCKED/US
     for i, part in enumerate(parts):
         params[f"parts.{i}"] = part
+    params["location"] = location
     base = f"https://www.apple.com{region['path']}/shop"
-    url = f"{base}/fulfillment-messages?{urllib.parse.urlencode(params)}"
+    url = f"{base}/fulfillment-messages?{urllib.parse.urlencode(params, safe="/")}"
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/json",

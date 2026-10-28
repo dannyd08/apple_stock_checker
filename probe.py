@@ -6,9 +6,9 @@ import urllib.request
 
 from checker import USER_AGENT, fetch_stores
 
-PROBES = [("California", "", "94103", "MK1E4LL/A"),
-          ("India", "/in", "400051", "MK2D4HN/A"),
-          ("Singapore", "/sg", "018972", "MK2D4X/A")]
+PROBES = [("California", {"path": "", "cppart": "UNLOCKED/US"}, "95014", "MK1F4LL/A"),
+          ("India", {"path": "/in"}, "400051", "MK2D4HN/A"),
+          ("Singapore", {"path": "/sg"}, "018972", "MK2D4X/A")]
 
 try:
     req = urllib.request.Request("https://ipinfo.io/json", headers={"User-Agent": USER_AGENT})
@@ -17,9 +17,9 @@ try:
 except Exception as e:
     print(f"egress lookup failed: {e}")
 
-for name, path, location, part in PROBES:
+for name, region, location, part in PROBES:
     try:
-        stores = fetch_stores({"path": path}, location, [part])
+        stores = fetch_stores(region, location, [part])
         print(f"{name}: OK, {len(stores)} stores returned")
     except urllib.error.HTTPError as e:
         print(f"{name}: HTTP {e.code}")
