@@ -8,33 +8,19 @@
         "94103"
       ],
       "models": {
-        "MK1E4LL/A": "iPhone Duo 256GB Star White",
-        "MK1F4LL/A": "iPhone Duo 256GB Night Sky",
-        "MK1G4LL/A": "iPhone Duo 512GB Star White",
         "MK1H4LL/A": "iPhone Duo 512GB Night Sky",
-        "MK1J4LL/A": "iPhone Duo 1TB Star White",
-        "MK1L4LL/A": "iPhone Duo 1TB Night Sky",
-        "MK1Q4LL/A": "iPhone Duo 2TB Star White",
-        "MK1R4LL/A": "iPhone Duo 2TB Night Sky"
+        "MK1L4LL/A": "iPhone Duo 1TB Night Sky"
       }
     },
     {
       "name": "India",
       "path": "/in",
       "locations": [
-        "400051",
-        "110017",
-        "560024"
+        "400051"
       ],
       "models": {
-        "MK2D4HN/A": "iPhone Duo 256GB Star White",
-        "MK2E4HN/A": "iPhone Duo 256GB Night Sky",
-        "MK2F4HN/A": "iPhone Duo 512GB Star White",
         "MK2G4HN/A": "iPhone Duo 512GB Night Sky",
-        "MK2H4HN/A": "iPhone Duo 1TB Star White",
-        "MK2J4HN/A": "iPhone Duo 1TB Night Sky",
-        "MK2K4HN/A": "iPhone Duo 2TB Star White",
-        "MK2L4HN/A": "iPhone Duo 2TB Night Sky"
+        "MK2J4HN/A": "iPhone Duo 1TB Night Sky"
       }
     },
     {
@@ -44,14 +30,8 @@
         "018972"
       ],
       "models": {
-        "MK2D4X/A": "iPhone Duo 256GB Star White",
-        "MK2E4X/A": "iPhone Duo 256GB Night Sky",
-        "MK2F4X/A": "iPhone Duo 512GB Star White",
         "MK2G4X/A": "iPhone Duo 512GB Night Sky",
-        "MK2H4X/A": "iPhone Duo 1TB Star White",
-        "MK2J4X/A": "iPhone Duo 1TB Night Sky",
-        "MK2K4X/A": "iPhone Duo 2TB Star White",
-        "MK2L4X/A": "iPhone Duo 2TB Night Sky"
+        "MK2J4X/A": "iPhone Duo 1TB Night Sky"
       }
     }
   ]

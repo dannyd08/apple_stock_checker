@@ -1,8 +1,8 @@
 # iPhone Duo stock checker
 
-Checks Apple Store pickup availability for every iPhone Duo model in the **SF Bay
-Area**, **India** and **Singapore** every 3 minutes on GitHub Actions, and alerts you
-when a model becomes available at a store. It alerts once when stock appears, not on every
+Checks Apple Store pickup availability for the iPhone Duo (512 GB and 1 TB, Night Sky)
+in the **SF Bay Area**, **Mumbai** and **Singapore** every 3 minutes on GitHub Actions,
+and alerts you when one becomes available at a store. It alerts once when stock appears, not on every
 check while it stays in stock.
 
 ## Alerts
@@ -28,7 +28,7 @@ HTTP 541 to any script from any network. The older `/shop/retail/pickup-message`
 endpoint returns the same store data without it.
 
 Apple does limit that endpoint per address: a burst of roughly 30 requests earns 541s
-for 10–15 minutes. Each check is one request per location (5 in total), 2 seconds
+for 10–15 minutes. Each check is one request per location (3 in total), 2 seconds
 apart, and a check stops at the first 541, keeping the previous state so nothing
 re-alerts.
 
@@ -42,8 +42,8 @@ waits 10 minutes before trying again. Manual runs do a single check.
 
 ## Changing what it watches
 
-Edit `config.json`: remove models you don't want, or change the postcodes under
-`locations`. Each location query returns the 12 nearest Apple Stores (fewer in India
+Edit `config.json`: add or remove models (every colour and size is listed in the git
+history of this file), or change the postcodes under `locations`. Each location query returns the 12 nearest Apple Stores (fewer in India
 and Singapore); 94103 covers the Bay Area from Corte Madera to Palo Alto. More
 locations mean more requests per check. `probe.py` makes one request per region to each endpoint and prints
 what came back; the "Probe Apple endpoints" workflow runs it on GitHub.
