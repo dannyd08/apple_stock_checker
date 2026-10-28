@@ -227,7 +227,7 @@ def main():
         regions = sorted({v["region"] for v in new.values()})
         notify(f"iPhone Duo in stock: {', '.join(regions)}",
                "\n".join(lines[:25]) + (f"\n…and {len(lines) - 25} more" if len(lines) > 25 else ""),
-               click=next(iter(new.values()))["url"])
+               click=next(iter(new.values()))["url"], priority="urgent")
     else:
         print("No new availability.")
 

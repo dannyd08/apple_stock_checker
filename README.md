@@ -7,13 +7,14 @@ check while it stays in stock.
 
 ## Alerts
 
-- **GitHub:** each alert is a comment on the "iPhone Duo stock alerts" issue that
-  @-mentions the repo owner, so GitHub Mobile (and email) notify you. No setup needed.
-- **ntfy (optional, faster):** install the [ntfy](https://ntfy.sh) app, subscribe to a
-  random topic name, and add that name as the repository secret `NTFY_TOPIC`
-  (Settings → Secrets and variables → Actions → New repository secret).
+- **ntfy (phone push, recommended):** install the [ntfy](https://ntfy.sh) app, subscribe
+  to a random topic name, and add that name as the repository secret `NTFY_TOPIC`
+  (Settings → Secrets and variables → Actions → New repository secret). Stock alerts are
+  sent at ntfy's "urgent" priority and tapping one opens Apple's buy page.
+- **GitHub (no setup):** each alert is also a comment on the "iPhone Duo stock alerts"
+  issue that @-mentions the repo owner, so the GitHub mobile app and email notify you.
 
-To test both: Actions → "Check iPhone Duo stock" → Run workflow, with
+To test: Actions → "Check iPhone Duo stock" → Run workflow, with
 **Send a test notification** ticked.
 
 If every request fails for 6 runs in a row, you get one "checker is blocked" alert, and
