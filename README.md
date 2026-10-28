@@ -36,13 +36,15 @@ re-alerts.
 
 GitHub's scheduler can't fire more often than every 5 minutes, and its fires are
 best-effort: often 5–15 minutes late and occasionally dropped. So the workflow fires
-every 15 minutes and each run loops, checking every 3 minutes for 28 minutes
+every 5 minutes and each run loops, checking every 3 minutes for 28 minutes
 (`CHECK_EVERY` and `RUN_FOR` in `.github/workflows/check.yml`). Runs share a
 concurrency group, so the next fire waits as "pending" until the current run ends and
-then takes over; one run is always active as long as at least one fire in every 28
-minutes gets through. A fire that arrives while another is already pending replaces
-it, which appears as a cancelled run in the Actions tab; that's normal. After any 541
-the loop waits 10 minutes before trying again. Manual runs do a single check.
+then takes over; one run is always active as long as any one of the ~5 fires during a
+run gets through. Each new fire replaces the pending one, so the Actions tab shows a
+cancelled run every 5 minutes or so; that's normal. If those cancellations email you,
+turn on "Send notifications for failed workflows only" under GitHub Settings →
+Notifications → Actions. After any 541 the loop waits 10 minutes before trying again.
+Manual runs do a single check.
 
 ## Changing what it watches
 

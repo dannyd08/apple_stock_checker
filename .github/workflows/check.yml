@@ -2,7 +2,7 @@ name: Check iPhone Duo stock
 
 on:
   schedule:
-    - cron: "3,18,33,48 * * * *"  # see "How often it checks" in the README
+    - cron: "2-57/5 * * * *"  # every 5 min (GitHub's minimum), off the busy :00
   workflow_dispatch:
     inputs:
       test_notify:
@@ -12,11 +12,11 @@ on:
 
 # GitHub's scheduler can't fire more often than every 5 minutes, and fires are
 # best-effort (often late, sometimes dropped), so each scheduled run loops instead: a
-# check every CHECK_EVERY seconds, for RUN_FOR seconds. RUN_FOR is longer than the gap
-# between fires on purpose: with the concurrency group below, the next fire waits as
-# "pending" until the current run ends, so coverage never depends on one fire arriving
-# on time. (A fire that arrives while one is already pending replaces it, which shows
-# up as a cancelled run. That's expected.) Manual runs ("Run workflow") do one check.
+# check every CHECK_EVERY seconds, for RUN_FOR seconds. RUN_FOR is much longer than the
+# gap between fires on purpose: with the concurrency group below, the next fire waits
+# as "pending" until the current run ends, so coverage holds as long as any one of the
+# ~5 fires during a run arrives. Each new fire replaces the pending one, which shows up
+# as a cancelled run; that's expected. Manual runs ("Run workflow") do one check.
 env:
   CHECK_EVERY: "180"
   RUN_FOR: "1680"
