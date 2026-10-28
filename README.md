@@ -1,8 +1,8 @@
 # iPhone Duo stock checker
 
-Checks Apple Store pickup availability for every iPhone Duo model in **California**,
-**India** and **Singapore** every 5 minutes on GitHub Actions, and alerts you when a
-model becomes available at a store. It alerts once when stock appears, not on every
+Checks Apple Store pickup availability for every iPhone Duo model in the **SF Bay
+Area**, **India** and **Singapore** every 3 minutes on GitHub Actions, and alerts you
+when a model becomes available at a store. It alerts once when stock appears, not on every
 check while it stays in stock.
 
 ## Alerts
@@ -27,23 +27,24 @@ HTTP 541 to any script from any network. The older `/shop/retail/pickup-message`
 endpoint returns the same store data without it.
 
 Apple does limit that endpoint per address: a burst of roughly 30 requests earns 541s
-for 10–15 minutes. The checker makes about 10 requests per run, 2 seconds apart, and
-stops the run at the first 541, keeping the previous state so nothing re-alerts.
+for 10–15 minutes. Each check is one request per location (5 in total), 2 seconds
+apart, and a check stops at the first 541, keeping the previous state so nothing
+re-alerts.
 
-## Checking more often than every 5 minutes
+## How often it checks
 
-GitHub's scheduler can't fire more often than that (and is often late), but one run can
-loop internally. In `.github/workflows/check.yml` set `CHECK_EVERY` to the seconds
-between checks and `RUN_FOR` to the seconds each run lasts (e.g. `120` and `3420`), and
-change the cron to hourly (`7 * * * *`). The concurrency group keeps runs from
-overlapping. More checks mean more requests from one address; after any 541 the loop
-waits 10 minutes before trying again.
+GitHub's scheduler can't fire more often than every 5 minutes (and is often late), so
+the workflow runs hourly and each run loops: a check every 3 minutes for 58 minutes
+(`CHECK_EVERY` and `RUN_FOR` in `.github/workflows/check.yml`). Scheduled runs queue
+behind each other, so there's at most a short gap each hour. After any 541 the loop
+waits 10 minutes before trying again. Manual runs do a single check.
 
 ## Changing what it watches
 
 Edit `config.json`: remove models you don't want, or change the postcodes under
 `locations`. Each location query returns the 12 nearest Apple Stores (fewer in India
-and Singapore). `probe.py` makes one request per region to each endpoint and prints
+and Singapore); 94103 covers the Bay Area from Corte Madera to Palo Alto. More
+locations mean more requests per check. `probe.py` makes one request per region to each endpoint and prints
 what came back; the "Probe Apple endpoints" workflow runs it on GitHub.
 
 ## Running it yourself

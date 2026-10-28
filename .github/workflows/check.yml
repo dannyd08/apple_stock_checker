@@ -2,7 +2,7 @@ name: Check iPhone Duo stock
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # GitHub's minimum; runs can be delayed under load
+    - cron: "7 * * * *"  # hourly; each run then loops for ~58 minutes (see env below)
   workflow_dispatch:
     inputs:
       test_notify:
@@ -10,13 +10,13 @@ on:
         type: boolean
         default: false
 
-# Two ways to run. GitHub's scheduler can't fire more often than every 5 minutes, so
-# to check more often, make each run loop: set CHECK_EVERY (seconds between checks)
-# and RUN_FOR (seconds per run), and change the cron above to hourly, e.g. "7 * * * *".
-# Leave them empty for one check per scheduled run.
+# GitHub's scheduler can't fire more often than every 5 minutes, so each scheduled run
+# loops instead: a check every CHECK_EVERY seconds, for RUN_FOR seconds. Manual runs
+# ("Run workflow") do a single check. For one check per scheduled run, empty both and
+# set the cron to "*/5 * * * *".
 env:
-  CHECK_EVERY: ""
-  RUN_FOR: ""
+  CHECK_EVERY: "180"
+  RUN_FOR: "3480"
   PYTHONUNBUFFERED: "1"
 
 permissions:
@@ -24,8 +24,10 @@ permissions:
   issues: write
   actions: write
 
+# Scheduled runs queue behind each other; manual runs get their own group so a test
+# doesn't wait up to an hour for the loop to finish.
 concurrency:
-  group: stock-check
+  group: ${{ github.event_name == 'schedule' && 'stock-check' || format('manual-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -49,7 +51,9 @@ jobs:
           GITHUB_MENTION: ${{ github.repository_owner }}
         run: |
           args=""
-          [ -n "$CHECK_EVERY" ] && args="--every $CHECK_EVERY --for $RUN_FOR"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -n "$CHECK_EVERY" ]; then
+            args="--every $CHECK_EVERY --for $RUN_FOR"
+          fi
           [ "${{ inputs.test_notify }}" = "true" ] && args="$args --test-notify"
           python3 checker.py $args
 
