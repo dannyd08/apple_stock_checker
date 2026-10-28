@@ -10,6 +10,15 @@ on:
         type: boolean
         default: false
 
+# Two ways to run. GitHub's scheduler can't fire more often than every 5 minutes, so
+# to check more often, make each run loop: set CHECK_EVERY (seconds between checks)
+# and RUN_FOR (seconds per run), and change the cron above to hourly, e.g. "7 * * * *".
+# Leave them empty for one check per scheduled run.
+env:
+  CHECK_EVERY: ""
+  RUN_FOR: ""
+  PYTHONUNBUFFERED: "1"
+
 permissions:
   contents: read
   issues: write
@@ -22,7 +31,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +47,11 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_MENTION: ${{ github.repository_owner }}
-        run: python3 checker.py ${{ inputs.test_notify && '--test-notify' || '' }}
+        run: |
+          args=""
+          [ -n "$CHECK_EVERY" ] && args="--every $CHECK_EVERY --for $RUN_FOR"
+          [ "${{ inputs.test_notify }}" = "true" ] && args="$args --test-notify"
+          python3 checker.py $args
 
       - name: Save state
         if: always()

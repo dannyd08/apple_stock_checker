@@ -30,6 +30,15 @@ Apple does limit that endpoint per address: a burst of roughly 30 requests earns
 for 10–15 minutes. The checker makes about 10 requests per run, 2 seconds apart, and
 stops the run at the first 541, keeping the previous state so nothing re-alerts.
 
+## Checking more often than every 5 minutes
+
+GitHub's scheduler can't fire more often than that (and is often late), but one run can
+loop internally. In `.github/workflows/check.yml` set `CHECK_EVERY` to the seconds
+between checks and `RUN_FOR` to the seconds each run lasts (e.g. `120` and `3420`), and
+change the cron to hourly (`7 * * * *`). The concurrency group keeps runs from
+overlapping. More checks mean more requests from one address; after any 541 the loop
+waits 10 minutes before trying again.
+
 ## Changing what it watches
 
 Edit `config.json`: remove models you don't want, or change the postcodes under

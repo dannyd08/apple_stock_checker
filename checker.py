@@ -27,6 +27,8 @@ FAILURE_ALERT_THRESHOLD = 6
 # so keep at least this many seconds between requests to it.
 REQUEST_GAP = 2.0
 _last_apple_request = 0.0
+# After a 541, wait at least this long before checking again (blocks last 10-15 min).
+BLOCK_COOLDOWN = 600
 
 # The newer fulfillment-messages endpoint sits behind Apple's browser bot check and
 # answers HTTP 541 to scripts; retail/pickup-message is the older, plainer one.
@@ -210,7 +212,7 @@ def main():
         # Keep previous availability so a temporary outage doesn't re-trigger alerts.
         with open(STATE_FILE, "w") as f:
             json.dump(state, f, indent=1)
-        return
+        return blocked
 
     if state.get("consecutive_failures", 0) >= FAILURE_ALERT_THRESHOLD:
         notify("iPhone Duo checker is working again", "Apple requests are succeeding again.",
@@ -232,15 +234,30 @@ def main():
     state["available"] = now_available
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=1)
+    return blocked
+
+
+def run_loop(every, run_for=None):
+    """Check every `every` seconds, for `run_for` seconds (forever if None)."""
+    stop_at = time.monotonic() + run_for if run_for else None
+    while True:
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), "checking", flush=True)
+        blocked = main()
+        sys.argv = [a for a in sys.argv if a != "--test-notify"]
+        delay = max(every, BLOCK_COOLDOWN) if blocked else every
+        if stop_at and time.monotonic() + delay > stop_at:
+            return
+        time.sleep(delay)
+
+
+def arg(name):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else None
 
 
 if __name__ == "__main__":
-    # "--every SECONDS" keeps checking in a loop (for running on a home machine).
-    if "--every" in sys.argv:
-        interval = int(sys.argv[sys.argv.index("--every") + 1])
-        while True:
-            print(time.strftime("%Y-%m-%d %H:%M:%S"), "checking")
-            main()
-            sys.argv = [a for a in sys.argv if a != "--test-notify"]
-            time.sleep(interval)
-    main()
+    # "--every SECONDS" keeps checking in a loop; "--for SECONDS" ends the loop after
+    # that long. GitHub Actions uses both to check more often than its scheduler can.
+    if arg("--every"):
+        run_loop(int(arg("--every")), int(arg("--for") or 0) or None)
+    else:
+        main()
