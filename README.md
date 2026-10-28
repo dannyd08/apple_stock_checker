@@ -1,7 +1,7 @@
 # iPhone Duo stock checker
 
 Checks Apple Store pickup availability for the iPhone Duo (512 GB and 1 TB, Night Sky)
-in the **SF Bay Area**, **Mumbai** and **Singapore** every 3 minutes on GitHub Actions,
+in the **SF Bay Area**, **Mumbai** and **Singapore** every 2 minutes on GitHub Actions,
 and alerts you when one becomes available at a store. It alerts once when stock appears, not on every
 check while it stays in stock.
 
@@ -29,12 +29,12 @@ endpoint returns the same store data without it.
 
 Apple does limit that endpoint per address: a burst of roughly 30 requests earns 541s
 for 10–15 minutes. Each check is one request per location (3 in total), 2 seconds
-apart, and a check stops at the first 541, keeping the previous state so nothing
+apart (about 42 requests per 28-minute run), and a check stops at the first 541, keeping the previous state so nothing
 re-alerts.
 
 ## How often it checks
 
-Each run checks every 3 minutes for 28 minutes (`CHECK_EVERY` and `RUN_FOR` in
+Each run checks every 2 minutes for 28 minutes (`CHECK_EVERY` and `RUN_FOR` in
 `.github/workflows/check.yml`) and, as its first step, queues its own successor. Runs
 share a concurrency group, so the successor waits as "pending" and starts the moment
 the current run ends: a chain with no gaps. GitHub's own scheduler (every 5 minutes)

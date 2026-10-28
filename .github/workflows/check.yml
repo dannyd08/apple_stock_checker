@@ -25,7 +25,7 @@ on:
 # disable the workflow (Actions → Check iPhone Duo stock → ··· → Disable workflow).
 # A manual run without the loop box does one check and doesn't touch the chain.
 env:
-  CHECK_EVERY: "180"
+  CHECK_EVERY: "120"
   RUN_FOR: "1680"
   LOOP: ${{ github.event_name == 'schedule' || inputs.loop == true }}
   PYTHONUNBUFFERED: "1"
