@@ -17,11 +17,14 @@ try:
 except Exception as e:
     print(f"egress lookup failed: {e}")
 
-for name, region, location, part in PROBES:
-    try:
-        stores = fetch_stores(region, location, [part])
-        print(f"{name}: OK, {len(stores)} stores returned")
-    except urllib.error.HTTPError as e:
-        print(f"{name}: HTTP {e.code}")
-    except Exception as e:
-        print(f"{name}: {type(e).__name__}: {e}")
+for endpoint in ("retail/pickup-message", "fulfillment-messages"):
+    for name, region, location, part in PROBES:
+        try:
+            stores = fetch_stores(region, location, [part], endpoint)
+            summary = ", ".join(f"{s.get('storeName')}={s['partsAvailability'][part]['pickupDisplay']}"
+                                for s in stores[:3] if part in s.get("partsAvailability", {}))
+            print(f"{endpoint} {name}: OK, {len(stores)} stores ({summary})")
+        except urllib.error.HTTPError as e:
+            print(f"{endpoint} {name}: HTTP {e.code}")
+        except Exception as e:
+            print(f"{endpoint} {name}: {type(e).__name__}: {e}")

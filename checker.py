@@ -24,6 +24,10 @@ ALERT_ISSUE_TITLE = "iPhone Duo stock alerts"
 # Send a "checker is blocked" alert after this many consecutive fully failed runs.
 FAILURE_ALERT_THRESHOLD = 6
 
+# The newer fulfillment-messages endpoint sits behind Apple's browser bot check and
+# answers HTTP 541 to scripts; retail/pickup-message is the older, plainer one.
+DEFAULT_ENDPOINT = "retail/pickup-message"
+
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -36,16 +40,19 @@ def http(url, data=None, headers=None, method=None, timeout=20):
         return resp.status, resp.read()
 
 
-def fetch_stores(region, location, parts):
+def fetch_stores(region, location, parts, endpoint=None):
     """Return the pickup 'stores' list for one region/location query."""
-    params = {"fae": "true", "pl": "true", "mts.0": "regular"}
+    endpoint = endpoint or region.get("endpoint", DEFAULT_ENDPOINT)
+    params = {"pl": "true", "mts.0": "regular"}
+    if endpoint == "fulfillment-messages":
+        params["fae"] = "true"
     if region.get("cppart"):
         params["cppart"] = region["cppart"]  # carrier, e.g. UNLOCKED/US
     for i, part in enumerate(parts):
         params[f"parts.{i}"] = part
     params["location"] = location
     base = f"https://www.apple.com{region['path']}/shop"
-    url = f"{base}/fulfillment-messages?{urllib.parse.urlencode(params, safe="/")}"
+    url = f"{base}/{endpoint}?{urllib.parse.urlencode(params, safe='/')}"
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/json",
@@ -53,6 +60,9 @@ def fetch_stores(region, location, parts):
     }
     status, body = http(url, headers=headers)
     data = json.loads(body)
+    # retail/pickup-message answers with body.stores; fulfillment-messages nests it deeper.
+    if "stores" in data.get("body", {}):
+        return data["body"]["stores"] or []
     return data["body"]["content"]["pickupMessage"].get("stores", [])
 
 
