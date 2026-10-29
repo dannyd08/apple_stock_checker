@@ -11,6 +11,13 @@ check while it stays in stock.
   to a random topic name, and add that name as the repository secret `NTFY_TOPIC`
   (Settings → Secrets and variables → Actions → New repository secret). Stock alerts are
   sent at ntfy's "urgent" priority and tapping one opens Apple's buy page.
+- **Pushover (optional; gets through iPhone silent mode):** ntfy can't bypass the iOS
+  mute switch, Pushover can. Install [Pushover](https://pushover.net) ($5 once after
+  the trial), create an application at pushover.net/apps/build, then add the repository
+  secrets `PUSHOVER_USER_KEY` (shown on the Pushover dashboard) and `PUSHOVER_APP_TOKEN`
+  (shown on the application's page). In the iOS app, turn on **Critical Alerts** for
+  high/emergency priority and pick a loud volume. Stock alerts are sent at emergency
+  priority: they repeat every 30 seconds for 30 minutes until you acknowledge one.
 - **GitHub (no setup):** each alert is also a comment on the "iPhone Duo stock alerts"
   issue that @-mentions the repo owner, so the GitHub mobile app and email notify you.
 

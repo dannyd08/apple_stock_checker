@@ -20,6 +20,13 @@ NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
 GITHUB_MENTION = os.environ.get("GITHUB_MENTION", "").strip()
+# Optional: Pushover (pushover.net). Stock alerts go out at emergency priority, which
+# repeats until acknowledged and, with Critical Alerts enabled in the iOS app, sounds
+# through the mute switch.
+PUSHOVER_USER_KEY = os.environ.get("PUSHOVER_USER_KEY", "").strip()
+PUSHOVER_APP_TOKEN = os.environ.get("PUSHOVER_APP_TOKEN", "").strip()
+PUSHOVER_RETRY = 30      # seconds between repeats of an unacknowledged stock alert
+PUSHOVER_EXPIRE = 1800   # stop repeating after this many seconds
 ALERT_ISSUE_TITLE = "iPhone Duo stock alerts"
 # Send a "checker is blocked" alert after this many consecutive fully failed runs.
 FAILURE_ALERT_THRESHOLD = 6
@@ -128,6 +135,28 @@ def notify_ntfy(title, message, click=None, priority="high"):
         print(f"ntfy failed: {e}", file=sys.stderr)
 
 
+def notify_pushover(title, message, click=None, priority="high"):
+    if not (PUSHOVER_USER_KEY and PUSHOVER_APP_TOKEN):
+        return
+    fields = {"token": PUSHOVER_APP_TOKEN, "user": PUSHOVER_USER_KEY,
+              "title": title, "message": message}
+    if click:
+        fields["url"] = click
+    if priority == "urgent":  # stock found: repeat until acknowledged
+        fields.update({"priority": 2, "retry": PUSHOVER_RETRY, "expire": PUSHOVER_EXPIRE,
+                       "sound": "persistent"})
+    elif priority == "high":
+        fields["priority"] = 1
+    else:
+        fields["priority"] = -1  # quiet, no sound
+    try:
+        http("https://api.pushover.net/1/messages.json",
+             data=urllib.parse.urlencode(fields).encode(),
+             headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+    except Exception as e:
+        print(f"Pushover failed: {e}", file=sys.stderr)
+
+
 def github_api(path, payload=None, method="GET"):
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -162,6 +191,7 @@ def notify_github(title, message):
 def notify(title, message, click=None, priority="high"):
     print(f"ALERT: {title}\n{message}")
     notify_ntfy(title, message, click, priority)
+    notify_pushover(title, message, click, priority)
     notify_github(title, message)
 
 

@@ -64,6 +64,8 @@ jobs:
       - name: Check stock
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+          PUSHOVER_APP_TOKEN: ${{ secrets.PUSHOVER_APP_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_MENTION: ${{ github.repository_owner }}
         run: |
