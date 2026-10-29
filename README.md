@@ -55,8 +55,8 @@ Actions.
 To **stop** checking: Actions → "Check iPhone Duo stock" → ··· → Disable workflow.
 To **start** it again: enable the workflow, then Run workflow with the **loop** box
 ticked (or wait for the scheduler). A manual run without the loop box does one check
-and leaves the chain alone. After any 541 the loop waits 10 minutes before trying
-again.
+and leaves the chain alone. One stray 541 doubles the wait before the next check; two in a row mean a real
+block and the loop waits 10 minutes.
 
 ## Changing what it watches
 
