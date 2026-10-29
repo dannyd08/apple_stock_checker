@@ -34,7 +34,7 @@ FAILURE_ALERT_THRESHOLD = 6
 # so keep at least this many seconds between requests to it.
 REQUEST_GAP = 2.0
 _last_apple_request = 0.0
-# After a 541, wait at least this long before checking again (blocks last 10-15 min).
+# After two checks in a row answered 541, wait this long (blocks last 10-15 min).
 BLOCK_COOLDOWN = 600
 
 # The newer fulfillment-messages endpoint sits behind Apple's browser bot check and
@@ -270,11 +270,14 @@ def main():
 def run_loop(every, run_for=None):
     """Check every `every` seconds, for `run_for` seconds (forever if None)."""
     stop_at = time.monotonic() + run_for if run_for else None
+    blocked_streak = 0
     while True:
         print(time.strftime("%Y-%m-%d %H:%M:%S"), "checking", flush=True)
         blocked = main()
         sys.argv = [a for a in sys.argv if a != "--test-notify"]
-        delay = max(every, BLOCK_COOLDOWN) if blocked else every
+        blocked_streak = blocked_streak + 1 if blocked else 0
+        # One stray 541 just doubles the wait; two in a row means a real block.
+        delay = max(every, BLOCK_COOLDOWN) if blocked_streak >= 2 else every * (2 if blocked else 1)
         if stop_at and time.monotonic() + delay > stop_at:
             return
         time.sleep(delay)
