@@ -36,12 +36,13 @@ endpoint returns the same store data without it.
 
 Apple does limit that endpoint per address: a burst of roughly 30 requests earns 541s
 for 10–15 minutes. Each check is one request per location (3 in total), 2 seconds
-apart (about 42 requests per 28-minute run), and a check stops at the first 541, keeping the previous state so nothing
+apart (36 requests per 24-minute run, under Apple's limit of roughly 40 from one
+address), and a check stops at the first 541, keeping the previous state so nothing
 re-alerts.
 
 ## How often it checks
 
-Each run checks every 2 minutes for 28 minutes (`CHECK_EVERY` and `RUN_FOR` in
+Each run checks every 2 minutes for 24 minutes (`CHECK_EVERY` and `RUN_FOR` in
 `.github/workflows/check.yml`) and, as its first step, queues its own successor. Runs
 share a concurrency group, so the successor waits as "pending" and starts the moment
 the current run ends: a chain with no gaps. GitHub's own scheduler (every 5 minutes)

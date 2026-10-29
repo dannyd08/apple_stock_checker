@@ -16,7 +16,9 @@ on:
 
 # How continuous checking works. A "loop run" (any scheduled run, or a manual run with
 # the loop box ticked) checks every CHECK_EVERY seconds for RUN_FOR seconds, and as its
-# first step queues its own successor with workflow_dispatch. The concurrency group
+# first step queues its own successor with workflow_dispatch. RUN_FOR is sized so a run
+# makes about 36 requests (12 checks x 3 regions): Apple starts answering 541 at roughly
+# 40 requests from one address, and each run gets a fresh runner address. The concurrency group
 # below holds that successor as "pending" until the current run ends, so the chain
 # never has a gap. GitHub's scheduler is only a backup that restarts the chain if a run
 # ever dies before queueing the next: its fires are best-effort (often late, sometimes
@@ -26,7 +28,7 @@ on:
 # A manual run without the loop box does one check and doesn't touch the chain.
 env:
   CHECK_EVERY: "120"
-  RUN_FOR: "1680"
+  RUN_FOR: "1440"
   LOOP: ${{ github.event_name == 'schedule' || inputs.loop == true }}
   PYTHONUNBUFFERED: "1"
 
