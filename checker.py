@@ -53,6 +53,27 @@ def http(url, data=None, headers=None, method=None, timeout=20):
         return resp.status, resp.read()
 
 
+# Alerts matter more than any one request: retry a notification send a few times.
+NOTIFY_RETRY_DELAYS = (3, 10, 30)
+
+
+def http_retry(url, data=None, headers=None, method=None):
+    for attempt, delay in enumerate((0,) + NOTIFY_RETRY_DELAYS):
+        if delay:
+            time.sleep(delay)
+        try:
+            return http(url, data, headers, method)
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or attempt == len(NOTIFY_RETRY_DELAYS):
+                raise  # a 4xx won't improve with a retry
+            last = e
+        except Exception as e:  # network blips: "Network is unreachable", timeouts
+            if attempt == len(NOTIFY_RETRY_DELAYS):
+                raise
+            last = e
+        print(f"  retrying {url.split('/')[2]} after {type(last).__name__}: {last}", file=sys.stderr)
+
+
 def fetch_stores(region, location, parts, endpoint=None):
     """Return the pickup 'stores' list for one region/location query."""
     global _last_apple_request
@@ -130,7 +151,7 @@ def notify_ntfy(title, message, click=None, priority="high"):
     if click:
         headers["Click"] = click
     try:
-        http(f"{NTFY_SERVER}/{NTFY_TOPIC}", data=message.encode("utf-8"), headers=headers, method="POST")
+        http_retry(f"{NTFY_SERVER}/{NTFY_TOPIC}", data=message.encode("utf-8"), headers=headers, method="POST")
     except Exception as e:
         print(f"ntfy failed: {e}", file=sys.stderr)
 
@@ -150,9 +171,9 @@ def notify_pushover(title, message, click=None, priority="high"):
     else:
         fields["priority"] = -1  # quiet, no sound
     try:
-        http("https://api.pushover.net/1/messages.json",
-             data=urllib.parse.urlencode(fields).encode(),
-             headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+        http_retry("https://api.pushover.net/1/messages.json",
+                   data=urllib.parse.urlencode(fields).encode(),
+                   headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
     except Exception as e:
         print(f"Pushover failed: {e}", file=sys.stderr)
 
@@ -167,7 +188,7 @@ def github_api(path, payload=None, method="GET"):
     if payload is not None:
         data = json.dumps(payload).encode()
         headers["Content-Type"] = "application/json"
-    _, body = http(f"https://api.github.com/repos/{GITHUB_REPOSITORY}{path}", data, headers, method)
+    _, body = http_retry(f"https://api.github.com/repos/{GITHUB_REPOSITORY}{path}", data, headers, method)
     return json.loads(body) if body else None
 
 
