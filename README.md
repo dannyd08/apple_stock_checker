@@ -56,8 +56,9 @@ Actions.
 To **stop** checking: Actions → "Check iPhone Duo stock" → ··· → Disable workflow.
 To **start** it again: enable the workflow, then Run workflow with the **loop** box
 ticked (or wait for the scheduler). A manual run without the loop box does one check
-and leaves the chain alone. One stray 541 doubles the wait before the next check; two in a row mean a real
-block and the loop waits 10 minutes.
+and leaves the chain alone. If Apple answers 541 (its per-address limit, which can carry over when GitHub reuses
+an address between runs), the run ends at once and the queued successor takes over
+from a fresh address within seconds.
 
 ## Changing what it watches
 

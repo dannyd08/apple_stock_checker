@@ -268,15 +268,23 @@ def main():
 
 
 def run_loop(every, run_for=None):
-    """Check every `every` seconds, for `run_for` seconds (forever if None)."""
+    """Check every `every` seconds, for `run_for` seconds (forever if None).
+
+    With `run_for` set (a chained GitHub Actions run), a 541 ends the run at once: the
+    queued successor starts within seconds, almost certainly from a different address,
+    which is the fastest way past a per-address block. Without it (a standalone loop),
+    one 541 doubles the wait and two in a row trigger BLOCK_COOLDOWN.
+    """
     stop_at = time.monotonic() + run_for if run_for else None
     blocked_streak = 0
     while True:
         print(time.strftime("%Y-%m-%d %H:%M:%S"), "checking", flush=True)
         blocked = main()
         sys.argv = [a for a in sys.argv if a != "--test-notify"]
+        if blocked and stop_at:
+            print("Ending this run early so the next one starts from a fresh address", flush=True)
+            return
         blocked_streak = blocked_streak + 1 if blocked else 0
-        # One stray 541 just doubles the wait; two in a row means a real block.
         delay = max(every, BLOCK_COOLDOWN) if blocked_streak >= 2 else every * (2 if blocked else 1)
         if stop_at and time.monotonic() + delay > stop_at:
             return
